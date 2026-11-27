@@ -10,10 +10,22 @@ desktop.ini
 *.swo
 *~
 
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
 # Environment & secrets
 .env
 .env.*
 !.env.example
+cookies/
+
+# Restored archive data & release staging (hosted via GitHub Releases)
+data/
+release_dist/
 
 # Logs & temporary files
 *.log

@@ -1,0 +1,79 @@
+weimingzi_archive 许可声明 / Licensing notice
+
+一、来源、权利归属与适用范围
+
+本仓库归档同一创作者在哔哩哔哩（UID 23191782，https://space.bilibili.com/23191782）
+与 YouTube（@wujixuanshi，https://www.youtube.com/@wujixuanshi）公开发布的内容。
+具体出处见各条记录与目录中的来源标识。创作者原创作品的著作权及依法享有的相关权利
+由原权利人保留；合作创作、转载、引用及其他第三方素材的权利归相应权利人所有。
+
+下方 MIT License 仅适用于本项目贡献者有权授权的原创软件、维护脚本、配置以及原创
+项目说明文档。项目说明文档中的第三方引文、标题、图片和其他归档内容不在此授权范围内。
+
+本许可不对归档语料作统一再许可，包括原视频、音频、字幕、动态、专栏、评论、封面与配图，
+以及包含其内容的 ASR 转录文本、SRT 字幕、词级时间戳 JSON、自动生成目录和其他导出结果。
+相关材料已有的明确许可继续适用；使用者应核实原权利人的授权及适用法律依据。
+转录、格式转换、索引构建和打包发布本身不构成对这些内容的商用、再发布或模型训练授权。
+
+本声明不限制公共领域材料、不受相关权利保护的信息，以及使用者依法或按既有许可已经享有
+的使用权利；也不另行授予姓名、肖像、隐私、商标等权利。具体内容权利说明见 CONTENT-RIGHTS.md。
+
+The archive draws on publicly posted content from the same creator across
+Bilibili (UID 23191782, https://space.bilibili.com/23191782) and YouTube
+(@wujixuanshi, https://www.youtube.com/@wujixuanshi). Individual records and
+catalogs identify their sources. Copyright and related rights in original works
+are reserved by their respective rights holders. Rights in collaborative works,
+reposts, quotations, and other third-party material remain with their respective
+rights holders.
+
+The MIT License below applies only to original software, maintenance scripts,
+configuration, and original project documentation that project contributors have
+the right to license. Third-party quotations, titles, images, and other archived
+content are excluded, including when embedded in documentation.
+
+No blanket license is granted for the archived corpus or its underlying
+third-party content, including audiovisual works, subtitles, posts, articles,
+comments, covers, images, ASR transcripts, SRT files, word-level JSON outputs,
+generated catalogs, and other exports. Existing express licenses remain
+applicable. Transcription, formatting, indexing, or packaging does not itself
+authorize commercial use, redistribution, or model training.
+
+This notice does not restrict public-domain material, information not protected
+by the relevant rights, or uses already permitted by applicable law or existing
+licenses. It does not grant personality, privacy, trademark, or other separate
+rights. See CONTENT-RIGHTS.md.
+
+二、归档内容的质量说明 / Archived content
+
+在适用法律允许的范围内，维护者不就归档材料及自动语音识别（ASR）结果的准确性、
+完整性或特定用途适用性作出保证。自动转录可能存在同音误识、专有名词偏差、断句或
+时间戳误差，使用时应结合原视频核实。
+
+To the extent permitted by applicable law, maintainers make no warranty as to
+the accuracy, completeness, or fitness for a particular purpose of archived
+content or automated ASR outputs. Automated transcripts may contain recognition,
+punctuation, or timestamp errors and should be verified against original videos.
+
+三、自有软件与原创项目说明文档的许可 / Software license
+
+MIT License
+
+Copyright (c) 2026 weimingzi_archive contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

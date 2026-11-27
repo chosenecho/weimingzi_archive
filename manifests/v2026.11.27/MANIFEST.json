@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "tag": "v2026.11.27",
+  "repo": "chosenecho/weimingzi_archive",
+  "created_at_utc": "2026-11-27T09:30:31Z",
+  "modules": [
+    "asr"
+  ],
+  "groups": [
+    "bili_23191782",
+    "yt_wujixuanshi"
+  ],
+  "total_archive_bytes": 494147240,
+  "total_raw_bytes": 2448492741,
+  "assets": [
+    {
+      "name": "asr-bili_23191782-text.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "light",
+      "kind": "text+srt",
+      "files": 3958,
+      "raw_bytes": 183361314,
+      "archive_bytes": 61836866,
+      "sha256": "c7df5ae676d51ab469dd35e564dd98cc729f85af1ac67f45278f405e9c43ad69"
+    },
+    {
+      "name": "asr-bili_23191782-json-part01.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 548,
+      "raw_bytes": 471549124,
+      "archive_bytes": 89237710,
+      "sha256": "21b4bc4cb1701b30629367992f86d291baa5aade59ab450dbfbe0a556aa56a7b"
+    },
+    {
+      "name": "asr-bili_23191782-json-part02.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 424,
+      "raw_bytes": 469567056,
+      "archive_bytes": 88637282,
+      "sha256": "4ea9b601e8284bb415a2fcad695591f00d45667893c3b10e4913f98b7c356b77"
+    },
+    {
+      "name": "asr-bili_23191782-json-part03.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 447,
+      "raw_bytes": 471438753,
+      "archive_bytes": 89274627,
+      "sha256": "e2dbadc9727f9a1b5fb14688a1320c6d84d35b01b0cd070cb8d33d20839cb8f5"
+    },
+    {
+      "name": "asr-bili_23191782-json-part04.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 318,
+      "raw_bytes": 471053055,
+      "archive_bytes": 89573342,
+      "sha256": "7d61054b8b42772e49c30d6312c94c7fea6f038fd0c208d4f1bfb482452f98b4"
+    },
+    {
+      "name": "asr-bili_23191782-json-part05.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 242,
+      "raw_bytes": 359231859,
+      "archive_bytes": 68295852,
+      "sha256": "92c585b85824f0fa2917db1f24b7666ed79da7490de8173d10a0b9d07f007177"
+    },
+    {
+      "name": "asr-yt_wujixuanshi-text.tar.gz",
+      "module": "asr",
+      "group": "yt_wujixuanshi",
+      "tier": "light",
+      "kind": "text+srt",
+      "files": 210,
+      "raw_bytes": 19108988,
+      "archive_bytes": 6788092,
+      "sha256": "afc30e6b9d4d57e442463a4d06a41dac7fc2830c0fbbbb8dc6fec370b648e06c"
+    },
+    {
+      "name": "asr-pipeline-db.tar.gz",
+      "module": "asr",
+      "group": "_meta",
+      "tier": "light",
+      "kind": "sqlite-db",
+      "files": 1,
+      "raw_bytes": 3182592,
+      "archive_bytes": 503469,
+      "sha256": "dad1af4776e8dcd8a29116b7c263b906c09e4bfc0a9e6b19832dad40818ac8d1"
+    }
+  ]
+}

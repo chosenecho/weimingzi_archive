@@ -1,0 +1,71 @@
+{
+  "latest_tag": "v2026.11.27",
+  "updated_at_utc": "2026-11-27T09:30:31Z",
+  "creator": {
+    "name": "未明子 / wujixuanshi",
+    "bilibili": {
+      "uid": "23191782",
+      "url": "https://space.bilibili.com/23191782"
+    },
+    "youtube": {
+      "handle": "@wujixuanshi",
+      "url": "https://www.youtube.com/@wujixuanshi"
+    }
+  },
+  "modules": {
+    "asr": {
+      "status": "published",
+      "upstream_tool": "https://github.com/chosenecho/qwen3-asr-pipeline",
+      "total_db_records": 2085,
+      "total_txt_files": 2084,
+      "total_srt_files": 2084,
+      "total_json_files": 1979,
+      "total_duration_hours": 1684.32,
+      "groups": {
+        "bili_23191782": {
+          "db_records": 1980,
+          "asr_done_records": 1980,
+          "duration_hours": 1530.03,
+          "date_min": "2017-12-14",
+          "date_max": "2026-07-17",
+          "files": {
+            "txt": 1979,
+            "srt": 1979,
+            "json": 1979
+          },
+          "raw_bytes": {
+            "txt": 74516918,
+            "srt": 108844396,
+            "json": 2242839847
+          },
+          "shared_output_paths": [
+            "data/transcripts/bili_23191782/2021-05-24 - 【主义主义】致分哲小将2.txt"
+          ]
+        },
+        "yt_wujixuanshi": {
+          "db_records": 105,
+          "asr_done_records": 105,
+          "duration_hours": 154.29,
+          "date_min": "2020-12-23",
+          "date_max": "2025-09-27",
+          "files": {
+            "txt": 105,
+            "srt": 105,
+            "json": 0
+          },
+          "raw_bytes": {
+            "txt": 7788101,
+            "srt": 11320887,
+            "json": 0
+          },
+          "shared_output_paths": []
+        }
+      }
+    },
+    "archive": {
+      "status": "planned",
+      "upstream_tool": "https://github.com/chosenecho/biliyt-archiver",
+      "note": "动态、专栏、视频元数据、评论与图片将在后续日期快照接入。"
+    }
+  }
+}
