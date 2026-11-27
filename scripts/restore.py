@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import shutil
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -23,6 +25,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPO = "chosenecho/weimingzi_archive"
 USER_AGENT = "weimingzi_archive-restore/1.0"
+DOWNLOAD_CHUNK_BYTES = 256 * 1024
+DOWNLOAD_TIMEOUT_SEC = 45
+DOWNLOAD_RETRIES = 6
+DOWNLOAD_MAX_TOTAL_ATTEMPTS = 25
 
 
 def sha256_file(path: Path) -> str:
@@ -45,42 +51,107 @@ def format_size(num_bytes: int) -> str:
 
 def resolve_latest_tag(repo: str) -> str:
     url = f"https://api.github.com/repos/{repo}/releases/latest"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    tag = data.get("tag_name")
-    if not tag:
-        raise RuntimeError(f"Could not determine latest release tag for {repo}")
-    return str(tag)
+    last_err: Exception | None = None
+    for attempt in range(1, DOWNLOAD_RETRIES + 1):
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            tag = data.get("tag_name")
+            if not tag:
+                raise RuntimeError(f"Could not determine latest release tag for {repo}")
+            return str(tag)
+        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
+            last_err = e
+            if attempt < DOWNLOAD_RETRIES:
+                wait = min(2 ** attempt, 15)
+                print(
+                    f"    Retry {attempt}/{DOWNLOAD_RETRIES - 1} resolving latest tag after {wait}s ({e})",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
+    assert last_err is not None
+    raise last_err
 
 
-def download_file(url: str, dest: Path) -> None:
+def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp, tmp.open("wb") as f:
-            total = int(resp.headers.get("Content-Length") or 0)
-            written = 0
-            while True:
-                chunk = resp.read(1024 * 1024)
-                if not chunk:
-                    break
-                f.write(chunk)
-                written += len(chunk)
+    last_err: Exception | None = None
+    consecutive_failures = 0
+    total_attempts = 0
+
+    while consecutive_failures < retries and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS:
+        total_attempts += 1
+        existing = tmp.stat().st_size if tmp.exists() else 0
+        written = existing
+        headers = {"User-Agent": USER_AGENT}
+        if existing > 0:
+            headers["Range"] = f"bytes={existing}-"
+
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT_SEC) as resp:
+                status = getattr(resp, "status", 200)
+                if existing > 0 and status == 206:
+                    mode = "ab"
+                    written = existing
+                    content_len = int(resp.headers.get("Content-Length") or 0)
+                    total = existing + content_len if content_len > 0 else 0
+                else:
+                    mode = "wb"
+                    written = 0
+                    total = int(resp.headers.get("Content-Length") or 0)
+
+                with tmp.open(mode) as f:
+                    while True:
+                        chunk = resp.read(DOWNLOAD_CHUNK_BYTES)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        written += len(chunk)
+                        if total > 0:
+                            pct = written * 100.0 / total
+                            print(
+                                f"\r    {dest.name}: {format_size(written)} / {format_size(total)} ({pct:5.1f}%)",
+                                end="",
+                                flush=True,
+                            )
                 if total > 0:
-                    pct = written * 100.0 / total
-                    print(
-                        f"\r    {dest.name}: {format_size(written)} / {format_size(total)} ({pct:5.1f}%)",
-                        end="",
-                        flush=True,
-                    )
-        if total > 0:
-            print()
-        tmp.replace(dest)
-    finally:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
+                    print()
+                if total > 0 and written < total:
+                    raise http.client.IncompleteRead(b"", total - written)
+            tmp.replace(dest)
+            return
+        except urllib.error.HTTPError as e:
+            if e.code == 416 and tmp.exists():
+                tmp.unlink(missing_ok=True)
+                continue
+            if 400 <= e.code < 500 and e.code != 429:
+                tmp.unlink(missing_ok=True)
+                raise
+            last_err = e
+        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
+            last_err = e
+
+        if written > existing:
+            # Forward progress was made; reset consecutive failure counter so Range resume can finish.
+            consecutive_failures = 0
+        else:
+            consecutive_failures += 1
+
+        if consecutive_failures < retries and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS:
+            wait = min(2 ** max(consecutive_failures, 1), 15)
+            print(
+                f"\n    [WARN] Download interrupted ({last_err}); resuming in {wait}s...",
+                file=sys.stderr,
+            )
+            time.sleep(wait)
+
+    if tmp.exists():
+        tmp.unlink(missing_ok=True)
+    assert last_err is not None
+    raise last_err
 
 
 def parse_checksums(sums_path: Path) -> dict[str, str]:
