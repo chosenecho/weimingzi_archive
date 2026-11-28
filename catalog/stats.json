@@ -1,6 +1,9 @@
 {
-  "latest_tag": "v2026.11.27",
-  "updated_at_utc": "2026-11-27T09:30:31Z",
+  "latest_tags": {
+    "asr": "asr-v2026.07.17",
+    "archive": "archive-v2026.11.27"
+  },
+  "updated_at_utc": "2026-11-28T02:48:58Z",
   "creator": {
     "name": "未明子 / wujixuanshi",
     "bilibili": {
@@ -60,12 +63,83 @@
           },
           "shared_output_paths": []
         }
-      }
+      },
+      "latest_tag": "asr-v2026.07.17",
+      "content_date_max": "2026-07-17"
     },
     "archive": {
-      "status": "planned",
+      "status": "published",
+      "latest_tag": "archive-v2026.11.27",
+      "content_date_max": "2026-11-27",
       "upstream_tool": "https://github.com/chosenecho/biliyt-archiver",
-      "note": "动态、专栏、视频元数据、评论与图片将在后续日期快照接入。"
+      "total_videos": 1797,
+      "total_dynamics": 2773,
+      "total_articles": 71,
+      "total_comments": 216882,
+      "total_images": 4525,
+      "total_platform_srt_files": 1905,
+      "groups": {
+        "bili_23191782": {
+          "videos": {
+            "count": 1691,
+            "date_min": "2017-12-14",
+            "date_max": "2026-08-27",
+            "info_json_files": 2067,
+            "platform_srt_files": 1903,
+            "comments": {
+              "comments": 89779,
+              "carriers": 1690,
+              "pinned": 212,
+              "up_comments": 999,
+              "date_min": "2017-12-17",
+              "date_max": "2026-11-27"
+            }
+          },
+          "dynamics": {
+            "count": 2773,
+            "date_min": "2017-12-14",
+            "date_max": "2026-11-27",
+            "comments": {
+              "comments": 125033,
+              "carriers": 2766,
+              "pinned": 297,
+              "up_comments": 1371,
+              "date_min": "2017-12-17",
+              "date_max": "2026-11-27"
+            }
+          },
+          "articles": {
+            "count": 71,
+            "date_min": "2021-02-08",
+            "date_max": "2026-06-18",
+            "comments": {
+              "comments": 2070,
+              "carriers": 71,
+              "pinned": 10,
+              "up_comments": 21,
+              "date_min": "2021-02-08",
+              "date_max": "2026-11-22"
+            }
+          },
+          "images_files": 4419,
+          "total_files": 23139
+        },
+        "yt_wujixuanshi": {
+          "videos": {
+            "count": 106,
+            "date_min": "2020-12-23",
+            "date_max": "2026-07-14",
+            "info_json_files": 106,
+            "platform_srt_files": 2,
+            "comments": {
+              "comments": 0,
+              "carriers": 0
+            }
+          },
+          "images_files": 106,
+          "total_files": 214
+        }
+      }
     }
   }
 }

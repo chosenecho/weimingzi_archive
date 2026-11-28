@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "tag": "archive-v2026.11.27",
+  "repo": "chosenecho/weimingzi_archive",
+  "created_at_utc": "2026-11-28T02:48:58Z",
+  "modules": [
+    "archive"
+  ],
+  "groups": [
+    "bili_23191782",
+    "yt_wujixuanshi"
+  ],
+  "total_archive_bytes": 1246966629,
+  "total_raw_bytes": 3655194713,
+  "assets": [
+    {
+      "name": "archive-bili_23191782-md.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "light",
+      "kind": "markdown+profile",
+      "files": 7377,
+      "raw_bytes": 51232778,
+      "archive_bytes": 21634863,
+      "sha256": "e6c2eb8afb2096f8b15851a6c7cbcfb89ea37f7338047e858ddf2b8c5438a6ba"
+    },
+    {
+      "name": "archive-bili_23191782-images-part01.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "images",
+      "kind": "images",
+      "files": 4055,
+      "raw_bytes": 471653486,
+      "archive_bytes": 438164220,
+      "sha256": "b52dc311c4a27ddf21993a9d19ebd36210fb86f026b548f27c9e52a54a9b40d6"
+    },
+    {
+      "name": "archive-bili_23191782-images-part02.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "images",
+      "kind": "images",
+      "files": 364,
+      "raw_bytes": 275061692,
+      "archive_bytes": 271067964,
+      "sha256": "0a53aecde1219dd94eab0828aa1db31784d95e53498f5b87db402d56d3e7f1fd"
+    },
+    {
+      "name": "archive-bili_23191782-meta-json.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "meta-json",
+      "files": 4911,
+      "raw_bytes": 208728039,
+      "archive_bytes": 53121652,
+      "sha256": "f2170481bd22fd29a8249229c773b0a5918f3e38d0a261673a4eabeb1abe1f23"
+    },
+    {
+      "name": "archive-bili_23191782-platform-srt.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "platform-srt",
+      "files": 1903,
+      "raw_bytes": 123408178,
+      "archive_bytes": 42403900,
+      "sha256": "57ee0ac31ba5614c7070d41949ab7ac8cf19509a751bf366036f668bbe414f33"
+    },
+    {
+      "name": "archive-bili_23191782-comments-json-part01.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "comments-json",
+      "files": 907,
+      "raw_bytes": 471612172,
+      "archive_bytes": 37110519,
+      "sha256": "cbbc448c4f0b37f8a63afba9fbd6229bbeb393777faf6a106cca01b8687ac188"
+    },
+    {
+      "name": "archive-bili_23191782-comments-json-part02.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "comments-json",
+      "files": 1021,
+      "raw_bytes": 471436041,
+      "archive_bytes": 37276053,
+      "sha256": "44602c6e88108712cf9416262f6125c8963a386821519af71b1b2c6560db751f"
+    },
+    {
+      "name": "archive-bili_23191782-comments-json-part03.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "comments-json",
+      "files": 1164,
+      "raw_bytes": 471856603,
+      "archive_bytes": 37437528,
+      "sha256": "c6a2346e76fd22ed34fd0d3b12bd76cb935e4958633121398b2071e50eefc71a"
+    },
+    {
+      "name": "archive-bili_23191782-comments-json-part04.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "comments-json",
+      "files": 1437,
+      "raw_bytes": 448087297,
+      "archive_bytes": 33631973,
+      "sha256": "ada1094e6b1dbe318d246c849c477b2a7a2cc8512a7847ed1a7dc42970b83b47"
+    },
+    {
+      "name": "archive-yt_wujixuanshi-images.tar.gz",
+      "module": "archive",
+      "group": "yt_wujixuanshi",
+      "tier": "images",
+      "kind": "images",
+      "files": 106,
+      "raw_bytes": 4220995,
+      "archive_bytes": 3649872,
+      "sha256": "e3ccbcc1d9c63548e13b359ff5c95b078e21dafafc68626d14d39b3c09e43b77"
+    },
+    {
+      "name": "archive-yt_wujixuanshi-raw.tar.gz",
+      "module": "archive",
+      "group": "yt_wujixuanshi",
+      "tier": "raw",
+      "kind": "meta-json+platform-srt",
+      "files": 108,
+      "raw_bytes": 6649816,
+      "archive_bytes": 749074,
+      "sha256": "e2d66249de5d64588a3e509f46e4c9431248f25b03605fddea1a45160819721d"
+    },
+    {
+      "name": "archive-biliyt-db.tar.gz",
+      "module": "archive",
+      "group": "_meta",
+      "tier": "light",
+      "kind": "sqlite-db",
+      "files": 1,
+      "raw_bytes": 651247616,
+      "archive_bytes": 270719011,
+      "sha256": "2ae5e57ce8cec977d1d065a856d16df08202687f022f7b8c77d98067d36b76e4"
+    }
+  ]
+}

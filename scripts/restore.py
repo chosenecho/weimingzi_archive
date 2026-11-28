@@ -2,9 +2,9 @@
 """Download, verify, and restore release assets for weimingzi_archive.
 
 Pure Python standard library implementation.
-Works both online (downloading directly from GitHub Releases without requiring
-`gh` CLI) and offline (restoring from a local directory containing downloaded
-`.tar.gz`, `MANIFEST.json`, and `SHA256SUMS.txt`).
+Supports independent pipeline release streams (`asr-vYYYY.MM.DD` and
+`archive-vYYYY.MM.DD`), automatic latest-tag resolution per module, HTTP Range
+resume with retry/backoff, SHA-256 verification, and offline `--src-dir` mode.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ import argparse
 import hashlib
 import http.client
 import json
-import shutil
 import sys
 import tarfile
 import tempfile
@@ -24,11 +23,17 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPO = "chosenecho/weimingzi_archive"
-USER_AGENT = "weimingzi_archive-restore/1.0"
+USER_AGENT = "weimingzi_archive-restore/2.0"
 DOWNLOAD_CHUNK_BYTES = 256 * 1024
 DOWNLOAD_TIMEOUT_SEC = 45
 DOWNLOAD_RETRIES = 6
 DOWNLOAD_MAX_TOTAL_ATTEMPTS = 25
+
+KNOWN_MODULES: tuple[str, ...] = ("asr", "archive")
+MODULE_TAG_PREFIX: dict[str, str] = {
+    "asr": "asr-v",
+    "archive": "archive-v",
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -49,29 +54,59 @@ def format_size(num_bytes: int) -> str:
     return f"{num_bytes} B"
 
 
-def resolve_latest_tag(repo: str) -> str:
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
+def fetch_json_with_retry(url: str) -> object:
     last_err: Exception | None = None
     for attempt in range(1, DOWNLOAD_RETRIES + 1):
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            tag = data.get("tag_name")
-            if not tag:
-                raise RuntimeError(f"Could not determine latest release tag for {repo}")
-            return str(tag)
-        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
+                return json.loads(resp.read().decode("utf-8"))
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        ) as e:
             last_err = e
             if attempt < DOWNLOAD_RETRIES:
-                wait = min(2 ** attempt, 15)
+                wait = min(2**attempt, 15)
                 print(
-                    f"    Retry {attempt}/{DOWNLOAD_RETRIES - 1} resolving latest tag after {wait}s ({e})",
+                    f"    Retry {attempt}/{DOWNLOAD_RETRIES - 1} fetching {url} after {wait}s ({e})",
                     file=sys.stderr,
                 )
                 time.sleep(wait)
     assert last_err is not None
     raise last_err
+
+
+def resolve_latest_tags_by_module(
+    repo: str, requested_modules: list[str]
+) -> list[tuple[str, str]]:
+    """Resolve the newest non-draft release tag for each requested module."""
+    releases = fetch_json_with_retry(
+        f"https://api.github.com/repos/{repo}/releases?per_page=30"
+    )
+    if not isinstance(releases, list):
+        raise RuntimeError(f"Unexpected GitHub releases API response for {repo}")
+
+    resolved: list[tuple[str, str]] = []
+    for mod in requested_modules:
+        prefix = MODULE_TAG_PREFIX[mod]
+        candidates = [
+            str(r["tag_name"])
+            for r in releases
+            if isinstance(r, dict)
+            and not r.get("draft")
+            and str(r.get("tag_name") or "").startswith(prefix)
+        ]
+        if candidates:
+            # Content-date tags sort lexicographically; pick highest date tag.
+            resolved.append((mod, max(candidates)))
+    if not resolved:
+        raise RuntimeError(
+            f"No published releases found on {repo} for module(s): {', '.join(requested_modules)}"
+        )
+    return resolved
 
 
 def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None:
@@ -131,16 +166,23 @@ def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None
                 tmp.unlink(missing_ok=True)
                 raise
             last_err = e
-        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        ) as e:
             last_err = e
 
         if written > existing:
-            # Forward progress was made; reset consecutive failure counter so Range resume can finish.
             consecutive_failures = 0
         else:
             consecutive_failures += 1
 
-        if consecutive_failures < retries and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS:
+        if (
+            consecutive_failures < retries
+            and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS
+        ):
             wait = min(2 ** max(consecutive_failures, 1), 15)
             print(
                 f"\n    [WARN] Download interrupted ({last_err}); resuming in {wait}s...",
@@ -172,6 +214,7 @@ def select_assets(
     preset: str,
     groups: list[str] | None,
     modules: list[str] | None,
+    tiers: list[str] | None = None,
 ) -> list[dict]:
     selected: list[dict] = []
     for asset in manifest.get("assets", []):
@@ -183,11 +226,19 @@ def select_assets(
         if modules and mod not in modules:
             continue
 
-        if preset == "light" and tier != "light":
-            continue
-        if preset == "db" and kind != "sqlite-db":
-            continue
-        # preset == "full" keeps all tiers
+        if tiers:
+            if tier not in tiers:
+                continue
+        else:
+            if preset == "light" and tier != "light":
+                continue
+            elif preset == "media" and tier not in ("light", "images"):
+                continue
+            elif preset == "raw" and tier not in ("light", "raw", "full"):
+                continue
+            elif preset == "db" and kind != "sqlite-db":
+                continue
+            # preset == "full" includes all tiers
 
         if groups and grp != "_meta" and grp not in groups:
             continue
@@ -230,14 +281,113 @@ def verify_file(path: Path, expected_sha256: str) -> None:
         )
 
 
+def restore_single_release(
+    *,
+    repo: str,
+    tag: str,
+    work_dir: Path,
+    dest_dir: Path,
+    preset: str,
+    groups: list[str] | None,
+    modules: list[str] | None,
+    tiers: list[str] | None,
+    online: bool,
+    skip_verify: bool,
+    list_only: bool,
+) -> tuple[int, int]:
+    base_url = (
+        f"https://github.com/{repo}/releases/download/{tag}" if online else None
+    )
+    if online:
+        work_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Fetching manifest for {repo}@{tag}...")
+        for meta_name in ("MANIFEST.json", "SHA256SUMS.txt"):
+            meta_path = work_dir / meta_name
+            if not meta_path.is_file():
+                download_file(f"{base_url}/{meta_name}", meta_path)
+
+    manifest_path = work_dir / "MANIFEST.json"
+    sums_path = work_dir / "SHA256SUMS.txt"
+
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Missing MANIFEST.json in {work_dir}")
+
+    checksums = parse_checksums(sums_path) if sums_path.is_file() else {}
+    if not skip_verify and "MANIFEST.json" in checksums:
+        verify_file(manifest_path, checksums["MANIFEST.json"])
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assets = select_assets(manifest, preset, groups, modules, tiers)
+    if not assets:
+        print(
+            f"No assets matched in {tag} for preset='{preset}'"
+            + (f", tiers={tiers}" if tiers else "")
+            + ".",
+            file=sys.stderr,
+        )
+        return 0, 0
+
+    total_dl = sum(a["archive_bytes"] for a in assets)
+    total_raw = sum(a["raw_bytes"] for a in assets)
+    print(
+        f"[{manifest.get('tag', tag)}] Matched {len(assets)} asset(s) for "
+        f"preset='{preset}' (archive={format_size(total_dl)}, extracted={format_size(total_raw)}):"
+    )
+    for a in assets:
+        print(
+            f"  - {a['name']} [{a.get('tier', '-')}/{a.get('kind', '-')}] "
+            f"({format_size(a['archive_bytes'])}, {a['files']:,} files)"
+        )
+
+    if list_only:
+        return len(assets), 0
+
+    total_files = 0
+    for idx, asset in enumerate(assets, 1):
+        name = asset["name"]
+        arc_path = work_dir / name
+        expected_hash = checksums.get(name) or asset.get("sha256")
+
+        if not arc_path.is_file():
+            if base_url is None:
+                raise FileNotFoundError(
+                    f"Missing local archive {arc_path} (offline --src-dir mode)."
+                )
+            print(f"[{idx}/{len(assets)}] Downloading {name}...")
+            download_file(f"{base_url}/{name}", arc_path)
+        else:
+            print(f"[{idx}/{len(assets)}] Using cached {name}")
+
+        if not skip_verify:
+            if not expected_hash:
+                raise RuntimeError(f"No SHA-256 checksum available for {name}")
+            verify_file(arc_path, expected_hash)
+            print("    [OK] SHA-256 verified")
+
+        cnt = safe_extract_tar_gz(arc_path, dest_dir)
+        total_files += cnt
+        print(f"    [OK] Extracted {cnt:,} file(s) -> {dest_dir}")
+
+    return len(assets), total_files
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Download, verify, and restore weimingzi_archive release assets."
     )
     parser.add_argument(
+        "--module",
+        "--modules",
+        dest="modules",
+        nargs="+",
+        choices=("all", "asr", "archive"),
+        default=None,
+        help="Pipeline module(s) to restore: all (default), asr, archive.",
+    )
+    parser.add_argument(
         "--tag",
         default="latest",
-        help="Release tag to download (e.g. v2026.11.27 or 'latest'). Ignored if --src-dir is set.",
+        help="Specific release tag (e.g. asr-v2026.07.17, archive-v2026.11.27) or 'latest'. Ignored if --src-dir is set.",
     )
     parser.add_argument(
         "--repo",
@@ -258,19 +408,27 @@ def main() -> int:
     )
     parser.add_argument(
         "--preset",
-        choices=("light", "full", "db"),
+        choices=("light", "media", "raw", "full", "db"),
         default="light",
-        help="light: text+srt + db (default); full: all assets including word-level JSON; db: database only",
+        help=(
+            "light: core text/md + db (default); "
+            "media: light + images/covers; "
+            "raw: light + raw JSON & platform .srt / word-level JSON; "
+            "full: all assets; "
+            "db: SQLite database(s) only"
+        ),
+    )
+    parser.add_argument(
+        "--tiers",
+        nargs="+",
+        choices=("light", "images", "raw", "full"),
+        default=None,
+        help="Optional explicit tier filter (overrides --preset tier selection, e.g. --tiers images).",
     )
     parser.add_argument(
         "--groups",
         nargs="+",
         help="Optional group filter, e.g. bili_23191782 yt_wujixuanshi",
-    )
-    parser.add_argument(
-        "--modules",
-        nargs="+",
-        help="Optional module filter, e.g. asr",
     )
     parser.add_argument(
         "--cache-dir",
@@ -293,94 +451,86 @@ def main() -> int:
     dest_dir: Path = args.dest
     dest_dir.mkdir(parents=True, exist_ok=True)
 
+    # Normalize requested modules
+    if args.modules is None or "all" in args.modules:
+        requested_modules = list(KNOWN_MODULES)
+        explicit_module_filter: list[str] | None = None
+    else:
+        requested_modules = [m for m in KNOWN_MODULES if m in args.modules]
+        explicit_module_filter = requested_modules
+
     tmp_ctx = None
     try:
         if args.src_dir is not None:
-            work_dir = args.src_dir
-            if not work_dir.is_dir():
-                raise FileNotFoundError(f"Source directory not found: {work_dir}")
-            base_url = None
-            tag = args.tag
-        else:
-            tag = resolve_latest_tag(args.repo) if args.tag == "latest" else args.tag
-            base_url = f"https://github.com/{args.repo}/releases/download/{tag}"
-            if args.cache_dir is not None:
-                work_dir = args.cache_dir
-                work_dir.mkdir(parents=True, exist_ok=True)
-            else:
-                tmp_ctx = tempfile.TemporaryDirectory(prefix="wmz_restore_")
-                work_dir = Path(tmp_ctx.name)
-
-            print(f"Fetching manifest for {args.repo}@{tag}...")
-            for meta_name in ("MANIFEST.json", "SHA256SUMS.txt"):
-                meta_path = work_dir / meta_name
-                if not meta_path.is_file():
-                    download_file(f"{base_url}/{meta_name}", meta_path)
-
-        manifest_path = work_dir / "MANIFEST.json"
-        sums_path = work_dir / "SHA256SUMS.txt"
-
-        if not manifest_path.is_file():
-            raise FileNotFoundError(f"Missing MANIFEST.json in {work_dir}")
-
-        checksums = parse_checksums(sums_path) if sums_path.is_file() else {}
-        if not args.skip_verify and "MANIFEST.json" in checksums:
-            verify_file(manifest_path, checksums["MANIFEST.json"])
-
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assets = select_assets(manifest, args.preset, args.groups, args.modules)
-        if not assets:
-            print("No assets matched the selected preset/filters.", file=sys.stderr)
-            return 1
-
-        total_dl = sum(a["archive_bytes"] for a in assets)
-        total_raw = sum(a["raw_bytes"] for a in assets)
-        print(
-            f"Matched {len(assets)} asset(s) for preset='{args.preset}' "
-            f"(archive={format_size(total_dl)}, extracted={format_size(total_raw)}):"
-        )
-        for a in assets:
-            print(
-                f"  - {a['name']} [{a.get('tier', '-')}/{a.get('kind', '-')}] "
-                f"({format_size(a['archive_bytes'])}, {a['files']:,} files)"
+            if not args.src_dir.is_dir():
+                raise FileNotFoundError(f"Source directory not found: {args.src_dir}")
+            arc_cnt, file_cnt = restore_single_release(
+                repo=args.repo,
+                tag=args.tag,
+                work_dir=args.src_dir,
+                dest_dir=dest_dir,
+                preset=args.preset,
+                groups=args.groups,
+                modules=explicit_module_filter,
+                tiers=args.tiers,
+                online=False,
+                skip_verify=args.skip_verify,
+                list_only=args.list,
             )
+            if not args.list and arc_cnt > 0:
+                print(
+                    f"Restore complete: {arc_cnt} archive(s), {file_cnt:,} file(s) "
+                    f"restored under {dest_dir / 'data'}"
+                )
+            return 0 if arc_cnt > 0 else 1
 
-        if args.list:
-            return 0
+        # Online mode: resolve release tag(s)
+        if args.tag == "latest":
+            targets = resolve_latest_tags_by_module(args.repo, requested_modules)
+        else:
+            targets = [(None, args.tag)]
 
+        if args.cache_dir is not None:
+            base_cache = args.cache_dir
+            base_cache.mkdir(parents=True, exist_ok=True)
+        else:
+            tmp_ctx = tempfile.TemporaryDirectory(prefix="wmz_restore_")
+            base_cache = Path(tmp_ctx.name)
+
+        total_archives = 0
         total_files = 0
-        for idx, asset in enumerate(assets, 1):
-            name = asset["name"]
-            arc_path = work_dir / name
-            expected_hash = checksums.get(name) or asset.get("sha256")
+        for mod_hint, tag in targets:
+            work_dir = base_cache / tag
+            mod_filter = [mod_hint] if mod_hint else explicit_module_filter
+            arc_cnt, file_cnt = restore_single_release(
+                repo=args.repo,
+                tag=tag,
+                work_dir=work_dir,
+                dest_dir=dest_dir,
+                preset=args.preset,
+                groups=args.groups,
+                modules=mod_filter,
+                tiers=args.tiers,
+                online=True,
+                skip_verify=args.skip_verify,
+                list_only=args.list,
+            )
+            total_archives += arc_cnt
+            total_files += file_cnt
 
-            if not arc_path.is_file():
-                if base_url is None:
-                    raise FileNotFoundError(
-                        f"Missing local archive {arc_path} (offline --src-dir mode)."
-                    )
-                print(f"[{idx}/{len(assets)}] Downloading {name}...")
-                download_file(f"{base_url}/{name}", arc_path)
-            else:
-                print(f"[{idx}/{len(assets)}] Using cached {name}")
-
-            if not args.skip_verify:
-                if not expected_hash:
-                    raise RuntimeError(f"No SHA-256 checksum available for {name}")
-                verify_file(arc_path, expected_hash)
-                print(f"    [OK] SHA-256 verified")
-
-            cnt = safe_extract_tar_gz(arc_path, dest_dir)
-            total_files += cnt
-            print(f"    [OK] Extracted {cnt:,} file(s) -> {dest_dir}")
-
-        print(
-            f"Restore complete: {len(assets)} archive(s), {total_files:,} file(s) "
-            f"restored under {dest_dir / 'data'}"
-        )
+        if not args.list:
+            if total_archives == 0:
+                return 1
+            print(
+                f"Restore complete: {total_archives} archive(s), {total_files:,} file(s) "
+                f"restored under {dest_dir / 'data'}"
+            )
         return 0
     except urllib.error.HTTPError as e:
-        print(f"HTTP error {e.code} while accessing GitHub Releases: {e.url}", file=sys.stderr)
+        print(
+            f"HTTP error {e.code} while accessing GitHub Releases: {e.url}",
+            file=sys.stderr,
+        )
         return 1
     finally:
         if tmp_ctx is not None:
