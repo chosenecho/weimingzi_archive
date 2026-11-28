@@ -11,7 +11,7 @@
 
 ## Core Invariants
 
-- **Dual independent release streams**: `asr-vYYYY.MM.DD` (dated by latest ASR `.txt` video date) and `archive-vYYYY.MM.DD` (dated by latest Bilibili dynamic date) are released independently. Keep their tags and manifests separate.
+- **Dual independent release streams (+ time-range deltas)**: base snapshots `asr-vYYYY.MM.DD` and `archive-vYYYY.MM.DD` are released independently, with optional lightweight incremental releases `<module>-delta-YYYY.MM.DD-YYYY.MM.DD` whose SQLite files unpack to `data/db/deltas/` and auto-merge in `restore.py`. Keep their tags and manifests separate.
 - **Strict creator whitelist**: only `bili_23191782` and `yt_wujixuanshi` may appear in `catalog/`, `manifests/`, SQLite DBs, or Release assets.
 - **Lightweight Git main**: commit only text catalogs, manifests, docs, and scripts; keep `data/`, `release_dist/`, `.tar.gz`, `.db`, and raw media binaries out of Git.
 - **Sanitized exports**: strip local absolute paths (`C:\`, `D:\`), usernames, cookies, private server URLs, and `sync_runs` rows before publishing. Exclude `.mp4`/`.mkv`/`.m4a` and other raw media binaries from Release archives.

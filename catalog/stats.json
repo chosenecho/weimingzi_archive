@@ -3,7 +3,15 @@
     "asr": "asr-v2026.07.17",
     "archive": "archive-v2026.11.27"
   },
-  "updated_at_utc": "2026-11-28T02:48:58Z",
+  "delta_tags": {
+    "asr": [
+      "asr-delta-2026.08.02-2026.11.26"
+    ],
+    "archive": [
+      "archive-delta-2026.11.24-2026.11.27"
+    ]
+  },
+  "updated_at_utc": "2026-11-28T07:14:26Z",
   "creator": {
     "name": "未明子 / wujixuanshi",
     "bilibili": {
@@ -19,27 +27,27 @@
     "asr": {
       "status": "published",
       "upstream_tool": "https://github.com/chosenecho/qwen3-asr-pipeline",
-      "total_db_records": 2085,
-      "total_txt_files": 2084,
-      "total_srt_files": 2084,
-      "total_json_files": 1979,
-      "total_duration_hours": 1684.32,
+      "total_db_records": 2088,
+      "total_txt_files": 2087,
+      "total_srt_files": 2087,
+      "total_json_files": 1982,
+      "total_duration_hours": 1690.18,
       "groups": {
         "bili_23191782": {
-          "db_records": 1980,
-          "asr_done_records": 1980,
-          "duration_hours": 1530.03,
+          "db_records": 1983,
+          "asr_done_records": 1983,
+          "duration_hours": 1535.89,
           "date_min": "2017-12-14",
-          "date_max": "2026-07-17",
+          "date_max": "2026-11-26",
           "files": {
-            "txt": 1979,
-            "srt": 1979,
-            "json": 1979
+            "txt": 1982,
+            "srt": 1982,
+            "json": 1982
           },
           "raw_bytes": {
-            "txt": 74516918,
-            "srt": 108844396,
-            "json": 2242839847
+            "txt": 74767602,
+            "srt": 109213021,
+            "json": 2250585226
           },
           "shared_output_paths": [
             "data/transcripts/bili_23191782/2021-05-24 - 【主义主义】致分哲小将2.txt"
@@ -65,38 +73,41 @@
         }
       },
       "latest_tag": "asr-v2026.07.17",
-      "content_date_max": "2026-07-17"
+      "content_date_max": "2026-11-26",
+      "delta_tags": [
+        "asr-delta-2026.08.02-2026.11.26"
+      ]
     },
     "archive": {
       "status": "published",
       "latest_tag": "archive-v2026.11.27",
       "content_date_max": "2026-11-27",
       "upstream_tool": "https://github.com/chosenecho/biliyt-archiver",
-      "total_videos": 1797,
-      "total_dynamics": 2773,
+      "total_videos": 1799,
+      "total_dynamics": 2776,
       "total_articles": 71,
-      "total_comments": 216882,
-      "total_images": 4525,
-      "total_platform_srt_files": 1905,
+      "total_comments": 216971,
+      "total_images": 4527,
+      "total_platform_srt_files": 1906,
       "groups": {
         "bili_23191782": {
           "videos": {
-            "count": 1691,
+            "count": 1693,
             "date_min": "2017-12-14",
-            "date_max": "2026-08-27",
-            "info_json_files": 2067,
-            "platform_srt_files": 1903,
+            "date_max": "2026-11-26",
+            "info_json_files": 2069,
+            "platform_srt_files": 1904,
             "comments": {
-              "comments": 89779,
-              "carriers": 1690,
+              "comments": 89868,
+              "carriers": 1692,
               "pinned": 212,
               "up_comments": 999,
               "date_min": "2017-12-17",
-              "date_max": "2026-11-27"
+              "date_max": "2026-11-28"
             }
           },
           "dynamics": {
-            "count": 2773,
+            "count": 2776,
             "date_min": "2017-12-14",
             "date_max": "2026-11-27",
             "comments": {
@@ -121,8 +132,8 @@
               "date_max": "2026-11-22"
             }
           },
-          "images_files": 4419,
-          "total_files": 23139
+          "images_files": 4421,
+          "total_files": 23160
         },
         "yt_wujixuanshi": {
           "videos": {
@@ -139,7 +150,10 @@
           "images_files": 106,
           "total_files": 214
         }
-      }
+      },
+      "delta_tags": [
+        "archive-delta-2026.11.24-2026.11.27"
+      ]
     }
   }
 }

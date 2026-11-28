@@ -3,8 +3,10 @@
 
 Pure Python standard library implementation.
 Supports independent pipeline release streams (`asr-vYYYY.MM.DD` and
-`archive-vYYYY.MM.DD`), automatic latest-tag resolution per module, HTTP Range
-resume with retry/backoff, SHA-256 verification, and offline `--src-dir` mode.
+`archive-vYYYY.MM.DD`) plus incremental time-range delta releases
+(`<module>-delta-YYYY.MM.DD-YYYY.MM.DD`), automatic latest-tag resolution
+per module, SQLite delta auto-merge, HTTP Range resume with retry/backoff,
+SHA-256 verification, and offline `--src-dir` mode.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ import argparse
 import hashlib
 import http.client
 import json
+import re
+import sqlite3
 import sys
 import tarfile
 import tempfile
@@ -23,7 +27,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPO = "chosenecho/weimingzi_archive"
-USER_AGENT = "weimingzi_archive-restore/2.0"
+USER_AGENT = "weimingzi_archive-restore/2.1"
 DOWNLOAD_CHUNK_BYTES = 256 * 1024
 DOWNLOAD_TIMEOUT_SEC = 45
 DOWNLOAD_RETRIES = 6
@@ -34,6 +38,14 @@ MODULE_TAG_PREFIX: dict[str, str] = {
     "asr": "asr-v",
     "archive": "archive-v",
 }
+MODULE_DELTA_PREFIX: dict[str, str] = {
+    "asr": "asr-delta-",
+    "archive": "archive-delta-",
+}
+BASE_TAG_RE = re.compile(r"^(?:asr|archive)-v(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$")
+DELTA_TAG_RE = re.compile(
+    r"^(?:asr|archive)-delta-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -80,11 +92,13 @@ def fetch_json_with_retry(url: str) -> object:
 
 
 def resolve_latest_tags_by_module(
-    repo: str, requested_modules: list[str]
+    repo: str,
+    requested_modules: list[str],
+    include_deltas: bool = True,
 ) -> list[tuple[str, str]]:
-    """Resolve the newest non-draft release tag for each requested module."""
+    """Resolve newest non-draft base release + applicable delta releases per module."""
     releases = fetch_json_with_retry(
-        f"https://api.github.com/repos/{repo}/releases?per_page=30"
+        f"https://api.github.com/repos/{repo}/releases?per_page=50"
     )
     if not isinstance(releases, list):
         raise RuntimeError(f"Unexpected GitHub releases API response for {repo}")
@@ -92,16 +106,43 @@ def resolve_latest_tags_by_module(
     resolved: list[tuple[str, str]] = []
     for mod in requested_modules:
         prefix = MODULE_TAG_PREFIX[mod]
-        candidates = [
-            str(r["tag_name"])
-            for r in releases
-            if isinstance(r, dict)
-            and not r.get("draft")
-            and str(r.get("tag_name") or "").startswith(prefix)
-        ]
-        if candidates:
-            # Content-date tags sort lexicographically; pick highest date tag.
-            resolved.append((mod, max(candidates)))
+        base_candidates: list[tuple[str, str, str]] = []
+        for r in releases:
+            if not isinstance(r, dict) or r.get("draft"):
+                continue
+            tag = str(r.get("tag_name") or "")
+            if not tag.startswith(prefix):
+                continue
+            m = BASE_TAG_RE.match(tag)
+            date_key = m.group(1) if m else tag[len(prefix) :]
+            pub_at = str(r.get("published_at") or r.get("created_at") or "")
+            base_candidates.append((tag, date_key, pub_at))
+
+        if not base_candidates:
+            continue
+
+        base_tag, base_date, base_pub = max(base_candidates, key=lambda x: x[0])
+        resolved.append((mod, base_tag))
+
+        if include_deltas:
+            dprefix = MODULE_DELTA_PREFIX[mod]
+            delta_candidates: list[tuple[str, str, int, str]] = []
+            for r in releases:
+                if not isinstance(r, dict) or r.get("draft"):
+                    continue
+                tag = str(r.get("tag_name") or "")
+                if not tag.startswith(dprefix):
+                    continue
+                m = DELTA_TAG_RE.match(tag)
+                if not m:
+                    continue
+                d_start, d_end, d_rev = m.group(1), m.group(2), int(m.group(3) or 1)
+                d_pub = str(r.get("published_at") or r.get("created_at") or "")
+                if d_end > base_date or (d_end == base_date and d_pub >= base_pub):
+                    delta_candidates.append((d_start, d_end, d_rev, tag))
+            for _, _, _, dtag in sorted(delta_candidates):
+                resolved.append((mod, dtag))
+
     if not resolved:
         raise RuntimeError(
             f"No published releases found on {repo} for module(s): {', '.join(requested_modules)}"
@@ -247,10 +288,11 @@ def select_assets(
     return selected
 
 
-def safe_extract_tar_gz(archive_path: Path, dest_dir: Path) -> int:
+def safe_extract_tar_gz(archive_path: Path, dest_dir: Path) -> tuple[int, list[str]]:
     """Safely extract a .tar.gz archive preventing path traversal or link escape."""
     dest_resolved = dest_dir.resolve()
     extracted = 0
+    extracted_paths: list[str] = []
     with tarfile.open(archive_path, mode="r:gz") as tf:
         members = tf.getmembers()
         for m in members:
@@ -265,12 +307,109 @@ def safe_extract_tar_gz(archive_path: Path, dest_dir: Path) -> int:
                 )
             if m.isfile():
                 extracted += 1
+                extracted_paths.append(m.name.replace("\\", "/"))
 
         if sys.version_info >= (3, 12):
             tf.extractall(path=dest_resolved, filter="data")
         else:
             tf.extractall(path=dest_resolved, members=members)
-    return extracted
+    return extracted, extracted_paths
+
+
+def merge_delta_sqlite_db(delta_rel: str, dest_dir: Path, module: str) -> str:
+    """Merge an extracted delta SQLite DB into the base DB if present."""
+    delta_path = dest_dir / delta_rel
+    if not delta_path.is_file():
+        return f"Delta DB not found at {delta_rel}"
+
+    if module == "asr":
+        base_path = dest_dir / "data" / "db" / "asr_pipeline.db"
+        if not base_path.is_file():
+            return f"Standalone delta DB saved at {delta_rel} (base asr_pipeline.db not present)"
+        scon = sqlite3.connect(f"file:{delta_path}?mode=ro", uri=True)
+        dcon = sqlite3.connect(str(base_path))
+        try:
+            scols = [r[1] for r in scon.execute("PRAGMA table_info(media_items)").fetchall()]
+            dcols = [r[1] for r in dcon.execute("PRAGMA table_info(media_items)").fetchall()]
+            common = [c for c in scols if c in dcols and c != "id"]
+            rows = scon.execute(f"SELECT {','.join(common)} FROM media_items").fetchall()
+            grp_i = common.index("source_group")
+            vid_i = common.index("video_id")
+            vpath_i = common.index("video_path")
+            ph = ",".join("?" for _ in common)
+            for r in rows:
+                dcon.execute(
+                    "DELETE FROM media_items WHERE (source_group = ? AND video_id = ?) OR video_path = ?",
+                    (r[grp_i], r[vid_i], r[vpath_i]),
+                )
+                dcon.execute(
+                    f"INSERT INTO media_items({','.join(common)}) VALUES ({ph})", r
+                )
+            dcon.commit()
+            return f"Merged delta DB -> data/db/asr_pipeline.db (+{len(rows)} media_items)"
+        finally:
+            dcon.close()
+            scon.close()
+
+    if module == "archive":
+        base_path = dest_dir / "data" / "db" / "biliyt.db"
+        if not base_path.is_file():
+            return f"Standalone delta DB saved at {delta_rel} (base biliyt.db not present)"
+        scon = sqlite3.connect(f"file:{delta_path}?mode=ro", uri=True)
+        dcon = sqlite3.connect(str(base_path))
+        try:
+            counts: list[str] = []
+            for tbl in ("videos", "dynamics", "articles", "comments", "favorites", "favorite_items"):
+                scols = [r[1] for r in scon.execute(f'PRAGMA table_info("{tbl}")').fetchall()]
+                dcols = [r[1] for r in dcon.execute(f'PRAGMA table_info("{tbl}")').fetchall()]
+                if not scols or not dcols:
+                    continue
+                common = [c for c in scols if c in dcols and c != "id"]
+                rows = scon.execute(f'SELECT {",".join(common)} FROM "{tbl}"').fetchall()
+                if not rows:
+                    continue
+                ph = ",".join("?" for _ in common)
+                dcon.executemany(
+                    f'INSERT OR REPLACE INTO "{tbl}"({",".join(common)}) VALUES ({ph})',
+                    rows,
+                )
+                counts.append(f"{tbl}={len(rows)}")
+
+            # Merge search_fts idempotently by (target_id, kind, item_id)
+            fts_cols = [
+                "target_id",
+                "kind",
+                "item_id",
+                "display_title",
+                "title",
+                "body",
+                "published_at",
+                "source_url",
+            ]
+            fts_rows = scon.execute(
+                f"SELECT {','.join(fts_cols)} FROM search_fts"
+            ).fetchall()
+            if fts_rows:
+                ph = ",".join("?" for _ in fts_cols)
+                for r in fts_rows:
+                    dcon.execute(
+                        "DELETE FROM search_fts WHERE target_id = ? AND kind = ? AND item_id = ?",
+                        (r[0], r[1], r[2]),
+                    )
+                    dcon.execute(
+                        f"INSERT INTO search_fts({','.join(fts_cols)}) VALUES ({ph})",
+                        r,
+                    )
+                counts.append(f"search_fts={len(fts_rows)}")
+
+            dcon.commit()
+            summary = ", ".join(counts) if counts else "0 rows"
+            return f"Merged delta DB -> data/db/biliyt.db ({summary})"
+        finally:
+            dcon.close()
+            scon.close()
+
+    return f"Delta DB saved at {delta_rel}"
 
 
 def verify_file(path: Path, expected_sha256: str) -> None:
@@ -364,9 +503,19 @@ def restore_single_release(
             verify_file(arc_path, expected_hash)
             print("    [OK] SHA-256 verified")
 
-        cnt = safe_extract_tar_gz(arc_path, dest_dir)
+        cnt, extracted_paths = safe_extract_tar_gz(arc_path, dest_dir)
         total_files += cnt
         print(f"    [OK] Extracted {cnt:,} file(s) -> {dest_dir}")
+
+        if (
+            manifest.get("release_type") == "delta"
+            and asset.get("kind") == "sqlite-db"
+        ):
+            mod = str(asset.get("module") or "")
+            for relp in extracted_paths:
+                if relp.endswith(".db"):
+                    msg = merge_delta_sqlite_db(relp, dest_dir, mod)
+                    print(f"    [OK] {msg}")
 
     return len(assets), total_files
 
@@ -442,6 +591,11 @@ def main() -> int:
         help="Skip SHA-256 checksum verification (not recommended).",
     )
     parser.add_argument(
+        "--no-deltas",
+        action="store_true",
+        help="In '--tag latest' mode, restore only base full snapshots and skip incremental delta releases.",
+    )
+    parser.add_argument(
         "--list",
         action="store_true",
         help="Only list matching assets and sizes without downloading/extracting archives.",
@@ -486,7 +640,11 @@ def main() -> int:
 
         # Online mode: resolve release tag(s)
         if args.tag == "latest":
-            targets = resolve_latest_tags_by_module(args.repo, requested_modules)
+            targets = resolve_latest_tags_by_module(
+                args.repo,
+                requested_modules,
+                include_deltas=not args.no_deltas,
+            )
         else:
             targets = [(None, args.tag)]
 

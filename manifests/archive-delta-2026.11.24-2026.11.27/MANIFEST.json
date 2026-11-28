@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "release_type": "delta",
+  "base_tag": "archive-v2026.11.27",
+  "date_range": {
+    "start": "2026-11-24",
+    "end": "2026-11-27"
+  },
+  "tag": "archive-delta-2026.11.24-2026.11.27",
+  "repo": "chosenecho/weimingzi_archive",
+  "created_at_utc": "2026-11-28T07:14:26Z",
+  "modules": [
+    "archive"
+  ],
+  "groups": [
+    "bili_23191782"
+  ],
+  "total_archive_bytes": 729137,
+  "total_raw_bytes": 2405557,
+  "assets": [
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-bili_23191782-md.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "light",
+      "kind": "markdown+profile",
+      "files": 8,
+      "raw_bytes": 16431,
+      "archive_bytes": 8431,
+      "sha256": "335bb7078a5aea0a9d59c53afd7ab318e971320d353e0a14cfdeef6b2ea85bd2"
+    },
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-bili_23191782-images.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "images",
+      "kind": "images",
+      "files": 2,
+      "raw_bytes": 65573,
+      "archive_bytes": 47961,
+      "sha256": "f971d8d990a245ceb6b38c423450540f80f571ac3592524cb3efa11353a07e8d"
+    },
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-bili_23191782-meta-json.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "meta-json",
+      "files": 5,
+      "raw_bytes": 298852,
+      "archive_bytes": 91153,
+      "sha256": "4340a4da38f5821adbb5baa90d36d4a0ff0e61a8696701dbd07f1bc331b32835"
+    },
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-bili_23191782-platform-srt.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "platform-srt",
+      "files": 1,
+      "raw_bytes": 216595,
+      "archive_bytes": 79356,
+      "sha256": "204438ce3ec5c5cd7c07ceb9d0deb29ef4751f87329993cc8ecf9e3644a27126"
+    },
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-bili_23191782-comments-json.tar.gz",
+      "module": "archive",
+      "group": "bili_23191782",
+      "tier": "raw",
+      "kind": "comments-json",
+      "files": 5,
+      "raw_bytes": 734954,
+      "archive_bytes": 63461,
+      "sha256": "904341c60a72dd4989fbeb51870bd4607c8046d662f04c197088ec18eb33dc93"
+    },
+    {
+      "name": "archive-delta-2026.11.24-2026.11.27-biliyt-db.tar.gz",
+      "module": "archive",
+      "group": "_meta",
+      "tier": "light",
+      "kind": "sqlite-db",
+      "files": 1,
+      "raw_bytes": 1073152,
+      "archive_bytes": 438775,
+      "sha256": "77ff0a30b366d25714025111b58528b761e311d19bdbc27fecca4941ba6694ec"
+    }
+  ]
+}

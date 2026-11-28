@@ -38,20 +38,21 @@ weimingzi_archive/
 data/
 ├── db/
 │   ├── asr_pipeline.db           # ASR 状态库（相对路径，已脱敏）
-│   └── biliyt.db                 # 多平台合并库（相对路径，已脱敏，含 FTS5）
-├── transcripts/                  # 来自 asr-v*
+│   ├── biliyt.db                 # 多平台合并库（相对路径，已脱敏，含 FTS5）
+│   └── deltas/                   # 时间段增量库（restore.py 自动合入上述基线库）
+├── transcripts/                  # 来自 asr-v* 与 asr-delta-*
 │   ├── bili_23191782/            # *.txt / *.srt / *.json（词级时间戳）
 │   └── yt_wujixuanshi/           # *.txt / *.srt
-└── archive/                      # 来自 archive-v*
+└── archive/                      # 来自 archive-v* 与 archive-delta-*
     ├── bilibili/bili_23191782/   # profile、dynamics/、articles/、videos/、comments/、images/
     └── youtube/yt_wujixuanshi/   # videos/（.info.json、平台 .srt、封面）
 ```
 
 ## 3. 版本标签与分包约定
 
-- **独立版本流**：按各自最新内容日期打标，同日修订追加 `-r2`。
-  - ASR 流：`asr-vYYYY.MM.DD`（取最新 ASR `.txt` 对应的视频日期）
-  - 归档流：`archive-vYYYY.MM.DD`（取最新 B 站动态日期）
+- **独立版本流与增量流**：按各自最新内容日期打标，同日修订追加 `-r2`。
+  - 全量基线：`asr-vYYYY.MM.DD`（取最新 ASR `.txt` 对应的视频日期）、`archive-vYYYY.MM.DD`（取最新 B 站动态日期）
+  - 时间段增量：`asr-delta-YYYY.MM.DD-YYYY.MM.DD`、`archive-delta-YYYY.MM.DD-YYYY.MM.DD`（仅打包区间新增文件与 `data/db/deltas/*.db`，不覆写基线库，由 `restore.py` 自动合并）
 - **归档格式**：UTF-8 PAX `.tar.gz`，大体积分组按原始体积 ≤ 450 MB 拆分为 `-partXX.tar.gz`，单包严格低于 GitHub Releases 2 GiB 限制，随附 `MANIFEST.json` 与 `SHA256SUMS.txt`。
 - **分包前缀**：
   - `asr-<group>-text.tar.gz`（`light`）、`asr-<group>-json-partXX.tar.gz`（`full`）、`asr-pipeline-db.tar.gz`（`light` / `sqlite-db`）

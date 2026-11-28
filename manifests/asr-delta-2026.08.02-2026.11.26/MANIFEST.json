@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "release_type": "delta",
+  "base_tag": "asr-v2026.07.17",
+  "date_range": {
+    "start": "2026-08-02",
+    "end": "2026-11-26"
+  },
+  "tag": "asr-delta-2026.08.02-2026.11.26",
+  "repo": "chosenecho/weimingzi_archive",
+  "created_at_utc": "2026-11-28T07:14:26Z",
+  "modules": [
+    "asr"
+  ],
+  "groups": [
+    "bili_23191782"
+  ],
+  "total_archive_bytes": 1719797,
+  "total_raw_bytes": 8397456,
+  "assets": [
+    {
+      "name": "asr-delta-2026.08.02-2026.11.26-bili_23191782-text.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "light",
+      "kind": "text+srt",
+      "files": 6,
+      "raw_bytes": 619309,
+      "archive_bytes": 240882,
+      "sha256": "ef56603e19a1372c38d607e006a23ca3587e6679f3fa1256c95e1db942af2be8"
+    },
+    {
+      "name": "asr-delta-2026.08.02-2026.11.26-bili_23191782-json.tar.gz",
+      "module": "asr",
+      "group": "bili_23191782",
+      "tier": "full",
+      "kind": "word-json",
+      "files": 3,
+      "raw_bytes": 7745379,
+      "archive_bytes": 1476865,
+      "sha256": "16e8b836e8044f31eaf0c7bba63c30a993a0f82ee1c54f83ca9677f3d4cf9fc3"
+    },
+    {
+      "name": "asr-delta-2026.08.02-2026.11.26-pipeline-db.tar.gz",
+      "module": "asr",
+      "group": "_meta",
+      "tier": "light",
+      "kind": "sqlite-db",
+      "files": 1,
+      "raw_bytes": 32768,
+      "archive_bytes": 2050,
+      "sha256": "82f683a673122a0a50a2c8f07a2e7946c55c9137d91b441628c1914d5607e883"
+    }
+  ]
+}
