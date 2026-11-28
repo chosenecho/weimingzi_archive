@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import http.client
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -27,11 +28,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPO = "chosenecho/weimingzi_archive"
-USER_AGENT = "weimingzi_archive-restore/2.1"
+USER_AGENT = "weimingzi_archive-restore/2.2"
 DOWNLOAD_CHUNK_BYTES = 256 * 1024
 DOWNLOAD_TIMEOUT_SEC = 45
 DOWNLOAD_RETRIES = 6
-DOWNLOAD_MAX_TOTAL_ATTEMPTS = 25
+DOWNLOAD_RESUME_DELAY_SEC = 0.5
 
 KNOWN_MODULES: tuple[str, ...] = ("asr", "archive")
 MODULE_BASE_PREFIXES: dict[str, tuple[str, ...]] = {
@@ -71,13 +72,67 @@ def format_size(num_bytes: int) -> str:
     return f"{num_bytes} B"
 
 
+def _github_token() -> str | None:
+    token = (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or "").strip()
+    return token or None
+
+
+def _retry_after_seconds(headers: object, default_wait: float) -> float:
+    if headers is None or not hasattr(headers, "get"):
+        return default_wait
+    raw = headers.get("Retry-After")
+    if raw:
+        try:
+            return max(1.0, min(float(raw.strip()), 60.0))
+        except ValueError:
+            pass
+    return default_wait
+
+
+def _parse_content_range_total(header_val: str | None) -> int:
+    if not header_val or "/" not in header_val:
+        return 0
+    tail = header_val.rsplit("/", 1)[-1].strip()
+    return int(tail) if tail.isdigit() else 0
+
+
 def fetch_json_with_retry(url: str) -> object:
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/vnd.github+json",
+    }
+    token = _github_token()
+    if token and url.startswith("https://api.github.com/"):
+        headers["Authorization"] = f"Bearer {token}"
+
     last_err: Exception | None = None
     for attempt in range(1, DOWNLOAD_RETRIES + 1):
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code == 403 and (
+                (e.headers and e.headers.get("X-RateLimit-Remaining") == "0")
+                or "rate limit" in str(e.reason or "").lower()
+            ):
+                hint = (
+                    "Set GH_TOKEN or GITHUB_TOKEN for a higher API rate limit, "
+                    "or pass --tag <release-tag> directly to bypass the Releases API."
+                )
+                raise RuntimeError(
+                    f"GitHub API rate limit exceeded (HTTP 403) for {url}. {hint}"
+                ) from e
+            if 400 <= e.code < 500 and e.code != 429:
+                raise
+            last_err = e
+            if attempt < DOWNLOAD_RETRIES:
+                wait = _retry_after_seconds(e.headers, float(min(2**attempt, 15)))
+                print(
+                    f"    Retry {attempt}/{DOWNLOAD_RETRIES - 1} fetching {url} after {wait:g}s ({e})",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
         except (
             urllib.error.URLError,
             TimeoutError,
@@ -168,12 +223,13 @@ def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None
     tmp = dest.with_suffix(dest.suffix + ".part")
     last_err: Exception | None = None
     consecutive_failures = 0
-    total_attempts = 0
+    high_water = tmp.stat().st_size if tmp.exists() else 0
 
-    while consecutive_failures < retries and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS:
-        total_attempts += 1
+    while consecutive_failures < retries:
         existing = tmp.stat().st_size if tmp.exists() else 0
         written = existing
+        total = 0
+        retry_after_headers = None
         headers = {"User-Agent": USER_AGENT}
         if existing > 0:
             headers["Range"] = f"bytes={existing}-"
@@ -186,7 +242,11 @@ def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None
                     mode = "ab"
                     written = existing
                     content_len = int(resp.headers.get("Content-Length") or 0)
-                    total = existing + content_len if content_len > 0 else 0
+                    total = (
+                        existing + content_len
+                        if content_len > 0
+                        else _parse_content_range_total(resp.headers.get("Content-Range"))
+                    )
                 else:
                     mode = "wb"
                     written = 0
@@ -215,10 +275,14 @@ def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None
         except urllib.error.HTTPError as e:
             if e.code == 416 and tmp.exists():
                 tmp.unlink(missing_ok=True)
+                high_water = 0
+                consecutive_failures += 1
+                last_err = e
                 continue
             if 400 <= e.code < 500 and e.code != 429:
                 tmp.unlink(missing_ok=True)
                 raise
+            retry_after_headers = e.headers
             last_err = e
         except (
             urllib.error.URLError,
@@ -228,23 +292,30 @@ def download_file(url: str, dest: Path, retries: int = DOWNLOAD_RETRIES) -> None
         ) as e:
             last_err = e
 
-        if written > existing:
+        made_progress = written > high_water
+        if made_progress:
+            high_water = written
             consecutive_failures = 0
+            wait: float = DOWNLOAD_RESUME_DELAY_SEC
         else:
             consecutive_failures += 1
+            wait = _retry_after_seconds(
+                retry_after_headers, float(min(2**consecutive_failures, 15))
+            )
 
-        if (
-            consecutive_failures < retries
-            and total_attempts < DOWNLOAD_MAX_TOTAL_ATTEMPTS
-        ):
-            wait = min(2 ** max(consecutive_failures, 1), 15)
+        if consecutive_failures < retries:
+            pos_info = (
+                f" at {format_size(written)} / {format_size(total)}"
+                if total > 0 and written > 0
+                else (f" at {format_size(written)}" if written > 0 else "")
+            )
             print(
-                f"\n    [WARN] Download interrupted ({last_err}); resuming in {wait}s...",
+                f"\n    [WARN] Download interrupted{pos_info} ({last_err}); resuming in {wait:g}s...",
                 file=sys.stderr,
             )
             time.sleep(wait)
 
-    if tmp.exists():
+    if tmp.exists() and tmp.stat().st_size == 0:
         tmp.unlink(missing_ok=True)
     assert last_err is not None
     raise last_err
@@ -549,7 +620,11 @@ def main() -> int:
     parser.add_argument(
         "--tag",
         default="latest",
-        help="Specific release tag (e.g. asr-v2026.07.17, archive-v2026.11.27) or 'latest'. Ignored if --src-dir is set.",
+        help=(
+            "Specific release tag (e.g. asr-base-2017.12.14-2026.07.17, "
+            "archive-delta-2026.11.24-2026.11.27) or 'latest' "
+            "(uses GH_TOKEN/GITHUB_TOKEN if set). Ignored if --src-dir is set."
+        ),
     )
     parser.add_argument(
         "--repo",
