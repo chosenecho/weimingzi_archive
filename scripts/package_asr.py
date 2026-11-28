@@ -35,7 +35,9 @@ DEFAULT_MAX_PART_RAW_MB = 450  # ~80-90 MB compressed for JSON, safe for GitHub 
 GITHUB_ASSET_LIMIT_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB hard GitHub limit
 
 ALLOWED_GROUPS: tuple[str, ...] = ("bili_23191782", "yt_wujixuanshi")
-TAG_RE = re.compile(r"^asr-v\d{4}\.\d{2}\.\d{2}(-r\d+)?$")
+TAG_RE = re.compile(
+    r"^asr-(?:base-\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}|v\d{4}\.\d{2}\.\d{2})(-r\d+)?$"
+)
 DATE_PREFIX_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\s*-\s*")
 BILI_PART_RE = re.compile(r"^(BV[0-9A-Za-z]+)_p(\d+)$")
 
@@ -69,26 +71,26 @@ def format_size(num_bytes: int) -> str:
 
 
 def detect_latest_asr_tag(transcripts_dir: Path, groups: list[str]) -> str:
-    latest_date = ""
+    dates: list[str] = []
     for grp in groups:
         gdir = transcripts_dir / grp
         if not gdir.is_dir():
             continue
         for p in gdir.glob("*.txt"):
             m = DATE_PREFIX_RE.match(p.name)
-            if m and m.group(1) > latest_date:
-                latest_date = m.group(1)
-    if not latest_date:
+            if m:
+                dates.append(m.group(1))
+    if not dates:
         raise RuntimeError(
-            f"Could not detect latest .txt content date under {transcripts_dir}"
+            f"Could not detect .txt content dates under {transcripts_dir}"
         )
-    return f"asr-v{latest_date.replace('-', '.')}"
+    return f"asr-base-{min(dates).replace('-', '.')}-{max(dates).replace('-', '.')}"
 
 
 def validate_tag(tag: str, allow_custom: bool = False) -> str:
     if not allow_custom and not TAG_RE.match(tag):
         raise ValueError(
-            f"Tag '{tag}' must follow content-date format asr-vYYYY.MM.DD (or asr-vYYYY.MM.DD-rN). "
+            f"Tag '{tag}' must follow asr-base-YYYY.MM.DD-YYYY.MM.DD (or legacy asr-vYYYY.MM.DD). "
             "Pass --allow-custom-tag to override."
         )
     return tag
@@ -517,13 +519,21 @@ def render_release_notes(tag: str, manifest: dict, stats: dict | None = None) ->
     )
     full_bytes = manifest["total_archive_bytes"]
 
+    m_range = re.match(r"^asr-base-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})", tag)
+    span = (
+        f"{m_range.group(1).replace('.', '-')} ~ {m_range.group(2).replace('.', '-')}"
+        if m_range
+        else tag
+    )
     lines = [
-        f"## ASR 转录快照 `{tag}`",
+        f"## [ASR · 全量] {span}",
         "",
-        "本 Release 包含同一创作者双平台（Bilibili [`UID 23191782`](https://space.bilibili.com/23191782) 与 YouTube [`@wujixuanshi`](https://www.youtube.com/@wujixuanshi)）视频的 Qwen3-ASR 转录产物及脱敏状态库。",
-        "原始数据由 [`chosenecho/qwen3-asr-pipeline`](https://github.com/chosenecho/qwen3-asr-pipeline) 生成，并经白名单校验与路径/服务地址脱敏后发布。",
+        f"- **Tag**：`{tag}`",
+        "- **类型**：全量基线",
+        f"- **时间跨度**：`{span}`",
+        "- **内容说明**：创作者双平台（Bilibili [`UID 23191782`](https://space.bilibili.com/23191782) 与 YouTube [`@wujixuanshi`](https://www.youtube.com/@wujixuanshi)）视频的 Qwen3-ASR 语音转录产物（`.txt` / `.srt` / 词级 `.json`）与脱敏状态库 `asr_pipeline.db`（由 [`qwen3-asr-pipeline`](https://github.com/chosenecho/qwen3-asr-pipeline) 生成）。",
         "",
-        "> **独立流水线发布**：本快照由 ASR 转录流水线独立发布，版本号取自最新 ASR `.txt` 对应的视频日期；动态、专栏、视频元数据、评论、平台自带字幕与图片在 `archive-v*` 独立发布流中维护。",
+        "> 增量转录在 `asr-delta-*` 发布流维护；动态、专栏、视频元数据、评论与图片在 `archive-base-*` / `archive-delta-*` 发布流维护。",
         "",
     ]
 
@@ -792,7 +802,13 @@ def publish_release(
     if not notes_path.is_file():
         notes_path.write_text(render_release_notes(tag, manifest), encoding="utf-8")
 
-    release_title = title or f"ASR Transcripts Snapshot {tag}"
+    m_range = re.match(r"^asr-base-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})", tag)
+    if m_range:
+        span = f"{m_range.group(1).replace('.', '-')} ~ {m_range.group(2).replace('.', '-')}"
+        default_title = f"[ASR · 全量] {span}"
+    else:
+        default_title = f"[ASR · 全量] {tag}"
+    release_title = title or default_title
 
     # Check if release already exists
     probe = subprocess.run(

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "release_type": "delta",
-  "base_tag": "asr-v2026.07.17",
+  "base_tag": "asr-base-2017.12.14-2026.07.17",
   "date_range": {
     "start": "2026-08-02",
     "end": "2026-11-26"

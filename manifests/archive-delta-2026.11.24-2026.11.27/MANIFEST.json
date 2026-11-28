@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "release_type": "delta",
-  "base_tag": "archive-v2026.11.27",
+  "base_tag": "archive-base-2017.12.14-2026.11.27",
   "date_range": {
     "start": "2026-11-24",
     "end": "2026-11-27"

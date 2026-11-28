@@ -34,15 +34,20 @@ DOWNLOAD_RETRIES = 6
 DOWNLOAD_MAX_TOTAL_ATTEMPTS = 25
 
 KNOWN_MODULES: tuple[str, ...] = ("asr", "archive")
-MODULE_TAG_PREFIX: dict[str, str] = {
-    "asr": "asr-v",
-    "archive": "archive-v",
+MODULE_BASE_PREFIXES: dict[str, tuple[str, ...]] = {
+    "asr": ("asr-base-", "asr-v"),
+    "archive": ("archive-base-", "archive-v"),
 }
 MODULE_DELTA_PREFIX: dict[str, str] = {
     "asr": "asr-delta-",
     "archive": "archive-delta-",
 }
-BASE_TAG_RE = re.compile(r"^(?:asr|archive)-v(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$")
+BASE_RANGE_TAG_RE = re.compile(
+    r"^(?:asr|archive)-base-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$"
+)
+LEGACY_BASE_TAG_RE = re.compile(
+    r"^(?:asr|archive)-v(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$"
+)
 DELTA_TAG_RE = re.compile(
     r"^(?:asr|archive)-delta-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})(?:-r(\d+))?$"
 )
@@ -105,23 +110,31 @@ def resolve_latest_tags_by_module(
 
     resolved: list[tuple[str, str]] = []
     for mod in requested_modules:
-        prefix = MODULE_TAG_PREFIX[mod]
-        base_candidates: list[tuple[str, str, str]] = []
+        prefixes = MODULE_BASE_PREFIXES[mod]
+        base_candidates: list[tuple[str, int, str, str]] = []
         for r in releases:
             if not isinstance(r, dict) or r.get("draft"):
                 continue
             tag = str(r.get("tag_name") or "")
-            if not tag.startswith(prefix):
+            if not tag.startswith(prefixes):
                 continue
-            m = BASE_TAG_RE.match(tag)
-            date_key = m.group(1) if m else tag[len(prefix) :]
+            m_range = BASE_RANGE_TAG_RE.match(tag)
+            m_legacy = LEGACY_BASE_TAG_RE.match(tag)
+            if m_range:
+                end_date = m_range.group(2)
+                rev = int(m_range.group(3) or 1)
+            elif m_legacy:
+                end_date = m_legacy.group(1)
+                rev = int(m_legacy.group(2) or 1)
+            else:
+                continue
             pub_at = str(r.get("published_at") or r.get("created_at") or "")
-            base_candidates.append((tag, date_key, pub_at))
+            base_candidates.append((end_date, rev, tag, pub_at))
 
         if not base_candidates:
             continue
 
-        base_tag, base_date, base_pub = max(base_candidates, key=lambda x: x[0])
+        base_date, _, base_tag, base_pub = max(base_candidates, key=lambda x: (x[0], x[1], x[2]))
         resolved.append((mod, base_tag))
 
         if include_deltas:

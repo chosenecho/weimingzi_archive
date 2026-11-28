@@ -7,7 +7,7 @@
 
 两个打包脚本都支持 `--tag auto` 自动推导内容日期标签，并共用白名单 `bili_23191782`、`yt_wujixuanshi`。完整参数见各脚本 `--help`。
 
-## 1. 发布 ASR 快照（`asr-vYYYY.MM.DD`）
+## 1. 发布 ASR 基线快照（`asr-base-YYYY.MM.DD-YYYY.MM.DD`）
 
 ```bash
 # 1) 打包到 release_dist/<tag>/ 并同步更新 catalog/ 与 manifests/<tag>/
@@ -23,7 +23,7 @@ git push origin main
 python scripts/package_asr.py publish --tag <tag> --skip-package --clean
 ```
 
-## 2. 发布多平台归档快照（`archive-vYYYY.MM.DD`）
+## 2. 发布多平台归档基线快照（`archive-base-YYYY.MM.DD-YYYY.MM.DD`）
 
 ```bash
 # 1) 打包到 release_dist/<tag>/，合并脱敏 biliyt.db 并更新 catalog/ 与 manifests/<tag>/

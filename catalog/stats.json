@@ -1,7 +1,7 @@
 {
   "latest_tags": {
-    "asr": "asr-v2026.07.17",
-    "archive": "archive-v2026.11.27"
+    "asr": "asr-base-2017.12.14-2026.07.17",
+    "archive": "archive-base-2017.12.14-2026.11.27"
   },
   "delta_tags": {
     "asr": [
@@ -72,7 +72,7 @@
           "shared_output_paths": []
         }
       },
-      "latest_tag": "asr-v2026.07.17",
+      "latest_tag": "asr-base-2017.12.14-2026.07.17",
       "content_date_max": "2026-11-26",
       "delta_tags": [
         "asr-delta-2026.08.02-2026.11.26"
@@ -80,7 +80,7 @@
     },
     "archive": {
       "status": "published",
-      "latest_tag": "archive-v2026.11.27",
+      "latest_tag": "archive-base-2017.12.14-2026.11.27",
       "content_date_max": "2026-11-27",
       "upstream_tool": "https://github.com/chosenecho/biliyt-archiver",
       "total_videos": 1799,

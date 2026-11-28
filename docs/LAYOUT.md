@@ -19,8 +19,10 @@ weimingzi_archive/
 │   ├── dynamics_bili_23191782.csv
 │   └── articles_bili_23191782.csv
 ├── manifests/                    # 各快照版本的 MANIFEST.json 与 SHA256SUMS.txt
-│   ├── asr-vYYYY.MM.DD/
-│   └── archive-vYYYY.MM.DD/
+│   ├── asr-base-YYYY.MM.DD-YYYY.MM.DD/
+│   ├── asr-delta-YYYY.MM.DD-YYYY.MM.DD/
+│   ├── archive-base-YYYY.MM.DD-YYYY.MM.DD/
+│   └── archive-delta-YYYY.MM.DD-YYYY.MM.DD/
 ├── docs/
 │   ├── LAYOUT.md                 # 本文件
 │   └── MAINTENANCE.md            # 发版与验收流程
@@ -50,9 +52,11 @@ data/
 
 ## 3. 版本标签与分包约定
 
-- **独立版本流与增量流**：按各自最新内容日期打标，同日修订追加 `-r2`。
-  - 全量基线：`asr-vYYYY.MM.DD`（取最新 ASR `.txt` 对应的视频日期）、`archive-vYYYY.MM.DD`（取最新 B 站动态日期）
-  - 时间段增量：`asr-delta-YYYY.MM.DD-YYYY.MM.DD`、`archive-delta-YYYY.MM.DD-YYYY.MM.DD`（仅打包区间新增文件与 `data/db/deltas/*.db`，不覆写基线库，由 `restore.py` 自动合并）
+- **统一版本标签与标题规范**（同区间修订追加 `-r2`）：
+  - **Tag**：`<stream>-<base|delta>-YYYY.MM.DD-YYYY.MM.DD`
+    - 全量基线：`asr-base-YYYY.MM.DD-YYYY.MM.DD`、`archive-base-YYYY.MM.DD-YYYY.MM.DD`
+    - 时间段增量：`asr-delta-YYYY.MM.DD-YYYY.MM.DD`、`archive-delta-YYYY.MM.DD-YYYY.MM.DD`（仅打包区间新增文件与 `data/db/deltas/*.db`，不覆写基线库，由 `restore.py` 自动合并）
+  - **Title**：`[ASR · 全量|增量] YYYY-MM-DD ~ YYYY-MM-DD`、`[归档 · 全量|增量] YYYY-MM-DD ~ YYYY-MM-DD`
 - **归档格式**：UTF-8 PAX `.tar.gz`，大体积分组按原始体积 ≤ 450 MB 拆分为 `-partXX.tar.gz`，单包严格低于 GitHub Releases 2 GiB 限制，随附 `MANIFEST.json` 与 `SHA256SUMS.txt`。
 - **分包前缀**：
   - `asr-<group>-text.tar.gz`（`light`）、`asr-<group>-json-partXX.tar.gz`（`full`）、`asr-pipeline-db.tar.gz`（`light` / `sqlite-db`）

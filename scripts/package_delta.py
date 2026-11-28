@@ -862,11 +862,14 @@ def package_asr_delta(
     light_bytes = sum(a["archive_bytes"] for a in assets if a["tier"] == "light")
     full_bytes = manifest["total_archive_bytes"]
     notes = [
-        f"## ASR 增量转录包 `{tag}`（{date_start} ~ {date_end}）",
+        f"## [ASR · 增量] {date_start} ~ {date_end}",
         "",
-        f"本 Release 为基线快照 [`{base_tag}`](https://github.com/{repo}/releases/tag/{base_tag}) 之后的**不可变时间段增量包**，覆盖 **{date_start} ~ {date_end}** 期间新增的 **{len(items)} 条有声视频**（共 **{total_hours:.2f} 小时**）的 Qwen3-ASR 语音转录产物与脱敏增量库。",
+        f"- **Tag**：`{tag}`",
+        f"- **类型**：增量补充（基线：[`{base_tag}`](https://github.com/{repo}/releases/tag/{base_tag})）",
+        f"- **时间跨度**：`{date_start}` ~ `{date_end}`",
+        f"- **内容说明**：覆盖本期新增的 **{len(items)} 条有声视频**（共 **{total_hours:.2f} 小时**）的 Qwen3-ASR 语音转录产物（`.txt` / `.srt` / 词级 `.json`）与脱敏增量库。",
         "",
-        "### 本期新增视频明细",
+        "### 覆盖统计",
         "",
         "| 日期 | 分组 | 视频 ID | 标题 | 时长（分钟） |",
         "| --- | --- | --- | --- | ---: |",
@@ -912,6 +915,8 @@ def package_asr_delta(
             "```bash",
             "sha256sum -c SHA256SUMS.txt",
             "```",
+            "",
+            f"完整在线目录见仓库内 [`catalog/`](https://github.com/{repo}/tree/main/catalog)，内容权利声明见 [`CONTENT-RIGHTS.md`](https://github.com/{repo}/blob/main/CONTENT-RIGHTS.md)。",
         ]
     )
     (out_dir / "RELEASE_NOTES.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
@@ -919,7 +924,7 @@ def package_asr_delta(
     return {
         "module": "asr",
         "tag": tag,
-        "title": f"ASR Transcripts Delta {date_start} ~ {date_end} ({tag})",
+        "title": f"[ASR · 增量] {date_start} ~ {date_end}",
         "out_dir": out_dir,
         "manifest": manifest,
         "date_start": date_start,
@@ -1499,15 +1504,18 @@ def package_archive_delta(
     light_b = sum(a["archive_bytes"] for a in assets if a["tier"] == "light")
     full_b = manifest["total_archive_bytes"]
     notes = [
-        f"## 多平台内容归档增量包 `{tag}`（{date_start} ~ {date_end}）",
+        f"## [归档 · 增量] {date_start} ~ {date_end}",
         "",
-        f"本 Release 为基线快照 [`{base_tag}`](https://github.com/{repo}/releases/tag/{base_tag}) 之后的**不可变时间段增量包**，覆盖 **{date_start} ~ {date_end}** 期间新增内容：",
+        f"- **Tag**：`{tag}`",
+        f"- **类型**：增量补充（基线：[`{base_tag}`](https://github.com/{repo}/releases/tag/{base_tag})）",
+        f"- **时间跨度**：`{date_start}` ~ `{date_end}`",
+        "- **内容说明**：覆盖本期新增的视频元信息/封面/平台字幕、动态、专栏、精选评论及脱敏增量 SQLite（含 FTS5 索引行）。",
         "",
-        f"- **新增视频**：{db_counts['videos']} 条",
-        f"- **新增动态**：{db_counts['dynamics']} 条",
-        f"- **新增专栏**：{db_counts['articles']} 篇",
-        f"- **新增精选评论**：{db_counts['comments']} 条",
-        f"- **新增 FTS5 索引行**：{db_counts['search_fts']} 行",
+        "### 覆盖统计",
+        "",
+        "| 新增视频 | 新增动态 | 新增专栏 | 新增精选评论 | 新增 FTS5 行 |",
+        "| ---: | ---: | ---: | ---: | ---: |",
+        f"| {db_counts['videos']:,} | {db_counts['dynamics']:,} | {db_counts['articles']:,} | {db_counts['comments']:,} | {db_counts['search_fts']:,} |",
         "",
         "### 快速下载与还原",
         "",
@@ -1540,6 +1548,8 @@ def package_archive_delta(
             "```bash",
             "sha256sum -c SHA256SUMS.txt",
             "```",
+            "",
+            f"完整在线目录见仓库内 [`catalog/`](https://github.com/{repo}/tree/main/catalog)，内容权利声明见 [`CONTENT-RIGHTS.md`](https://github.com/{repo}/blob/main/CONTENT-RIGHTS.md)。",
         ]
     )
     (out_dir / "RELEASE_NOTES.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
@@ -1561,7 +1571,7 @@ def package_archive_delta(
     return {
         "module": "archive",
         "tag": tag,
-        "title": f"Multi-Platform Content Archive Delta {date_start} ~ {date_end} ({tag})",
+        "title": f"[归档 · 增量] {date_start} ~ {date_end}",
         "out_dir": out_dir,
         "manifest": manifest,
         "date_start": date_start,

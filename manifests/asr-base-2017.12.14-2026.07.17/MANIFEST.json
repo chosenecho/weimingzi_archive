@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
-  "tag": "asr-v2026.07.17",
+  "release_type": "base",
+  "date_range": {
+    "start": "2017-12-14",
+    "end": "2026-07-17"
+  },
+  "tag": "asr-base-2017.12.14-2026.07.17",
   "repo": "chosenecho/weimingzi_archive",
   "created_at_utc": "2026-11-27T09:30:31Z",
   "modules": [

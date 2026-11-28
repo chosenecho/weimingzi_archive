@@ -43,7 +43,9 @@ GROUP_PLATFORMS: dict[str, str] = {
     "yt_wujixuanshi": "youtube",
 }
 
-TAG_RE = re.compile(r"^archive-v\d{4}\.\d{2}\.\d{2}(-r\d+)?$")
+TAG_RE = re.compile(
+    r"^archive-(?:base-\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}|v\d{4}\.\d{2}\.\d{2})(-r\d+)?$"
+)
 DATE_PREFIX_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\s*-\s*")
 BV_RE = re.compile(r"\[(BV[0-9A-Za-z]+)(?:_p(\d+))?\]")
 
@@ -323,39 +325,47 @@ def validate_groups(requested: list[str] | None) -> list[str]:
 def validate_tag(tag: str, allow_custom: bool = False) -> str:
     if not allow_custom and not TAG_RE.match(tag):
         raise ValueError(
-            f"Tag '{tag}' must follow content-date format archive-vYYYY.MM.DD "
-            "(or archive-vYYYY.MM.DD-rN). Pass --allow-custom-tag to override."
+            f"Tag '{tag}' must follow archive-base-YYYY.MM.DD-YYYY.MM.DD "
+            "(or legacy archive-vYYYY.MM.DD). Pass --allow-custom-tag to override."
         )
     return tag
 
 
 def detect_latest_dynamic_tag(biliyt_root: Path) -> str:
-    """Detect archive-vYYYY.MM.DD from the latest bili_23191782 dynamic date."""
+    """Detect archive-base-YYYY.MM.DD-YYYY.MM.DD from bili_23191782 content date span."""
+    earliest = ""
     latest = ""
     dyn_dir = biliyt_root / "downloads" / "bilibili" / "bili_23191782" / "dynamics"
     if dyn_dir.is_dir():
         for entry in dyn_dir.iterdir():
             if entry.is_dir():
                 m = DATE_PREFIX_RE.match(entry.name)
-                if m and m.group(1) > latest:
-                    latest = m.group(1)
+                if m:
+                    dt = m.group(1)
+                    if not earliest or dt < earliest:
+                        earliest = dt
+                    if dt > latest:
+                        latest = dt
     biliyt_db = biliyt_root / "state" / "biliyt.db"
     if biliyt_db.is_file():
         con = sqlite3.connect(f"file:{biliyt_db}?mode=ro", uri=True)
         try:
             row = con.execute(
-                "SELECT max(substr(published_at, 1, 10)) FROM dynamics "
+                "SELECT min(substr(published_at, 1, 10)), max(substr(published_at, 1, 10)) FROM dynamics "
                 "WHERE target_id = 'bili_23191782' AND published_at IS NOT NULL"
             ).fetchone()
-            if row and row[0] and len(row[0]) == 10 and row[0] > latest:
-                latest = row[0]
+            if row:
+                if row[0] and len(row[0]) == 10 and (not earliest or row[0] < earliest):
+                    earliest = row[0]
+                if row[1] and len(row[1]) == 10 and row[1] > latest:
+                    latest = row[1]
         finally:
             con.close()
-    if not latest:
+    if not earliest or not latest:
         raise RuntimeError(
-            f"Could not detect latest dynamic date under {biliyt_root}"
+            f"Could not detect dynamic date range under {biliyt_root}"
         )
-    return f"archive-v{latest.replace('-', '.')}"
+    return f"archive-base-{earliest.replace('-', '.')}-{latest.replace('-', '.')}"
 
 
 def clean_preview(text: str | None, max_len: int = 120) -> str:
@@ -1264,13 +1274,21 @@ def render_release_notes(
     raw_bytes = tier_bytes({"light", "raw"})
     full_bytes = manifest["total_archive_bytes"]
 
+    m_range = re.match(r"^archive-base-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})", tag)
+    span = (
+        f"{m_range.group(1).replace('.', '-')} ~ {m_range.group(2).replace('.', '-')}"
+        if m_range
+        else tag
+    )
     lines = [
-        f"## 多平台内容归档快照 `{tag}`",
+        f"## [归档 · 全量] {span}",
         "",
-        "本 Release 由 [`chosenecho/biliyt-archiver`](https://github.com/chosenecho/biliyt-archiver) 流水线独立发布，版本号取自最新 B 站动态日期。",
-        "包含同一创作者双平台（Bilibili [`UID 23191782`](https://space.bilibili.com/23191782) 与 YouTube [`@wujixuanshi`](https://www.youtube.com/@wujixuanshi)）的 UP 主档案、动态、专栏、视频元数据、精选评论区、平台自带字幕（`raw` 分层）、原图与封面，以及合并脱敏的 `biliyt.db`（含 FTS5 全文检索索引）。",
+        f"- **Tag**：`{tag}`",
+        "- **类型**：全量基线",
+        f"- **时间跨度**：`{span}`",
+        "- **内容说明**：创作者双平台（Bilibili [`UID 23191782`](https://space.bilibili.com/23191782) 与 YouTube [`@wujixuanshi`](https://www.youtube.com/@wujixuanshi)）的 UP 主档案、动态、专栏、视频元数据、精选评论区、平台自带字幕、原图与封面，以及合并脱敏的 `biliyt.db`（含 FTS5 全文检索索引，由 [`biliyt-archiver`](https://github.com/chosenecho/biliyt-archiver) 生成）。",
         "",
-        "> **独立流水线发布**：Qwen3-ASR 语音转录产物在 `asr-v*` 独立发布流中维护；原始 `.mp4` 视频文件（超 450 GB）不托管于 GitHub。",
+        "> 增量归档在 `archive-delta-*` 发布流维护；Qwen3-ASR 语音转录在 `asr-base-*` / `asr-delta-*` 发布流维护；原始 `.mp4` 视频不托管于 GitHub。",
         "",
     ]
 
@@ -1588,7 +1606,13 @@ def publish_release(
     if not notes_path.is_file():
         notes_path.write_text(render_release_notes(tag, manifest), encoding="utf-8")
 
-    release_title = title or f"Multi-Platform Content Archive Snapshot {tag}"
+    m_range = re.match(r"^archive-base-(\d{4}\.\d{2}\.\d{2})-(\d{4}\.\d{2}\.\d{2})", tag)
+    if m_range:
+        span = f"{m_range.group(1).replace('.', '-')} ~ {m_range.group(2).replace('.', '-')}"
+        default_title = f"[归档 · 全量] {span}"
+    else:
+        default_title = f"[归档 · 全量] {tag}"
+    release_title = title or default_title
 
     probe = subprocess.run(
         ["gh", "release", "view", tag, "-R", repo],
