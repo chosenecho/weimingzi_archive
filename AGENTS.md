@@ -21,10 +21,11 @@
 
 ```bash
 # Syntax-check all scripts
-python -m py_compile scripts/package_asr.py scripts/package_archive.py scripts/restore.py
+python -m py_compile scripts/package_asr.py scripts/package_archive.py scripts/package_delta.py scripts/restore.py
 
 # Inspect CLI flags (authoritative source)
 python scripts/restore.py --help
+python scripts/package_delta.py --help
 python scripts/package_asr.py --help
 python scripts/package_archive.py --help
 

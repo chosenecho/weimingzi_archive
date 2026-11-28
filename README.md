@@ -50,6 +50,7 @@ python scripts/restore.py --src-dir ./downloaded_release --preset light
 
 两条上游流水线各自维护**全量基线快照**（`*-vYYYY.MM.DD`）与**时间段增量补充包**（`*-delta-YYYY.MM.DD-YYYY.MM.DD`），默认 `restore.py` 会按序还原基线并自动叠加增量与合并 SQLite：
 
+<!-- AUTO_SNAPSHOT_TABLE_START -->
 | 发布流 | 类型与版本 | 时间跨度 | 覆盖内容 | 在线目录与账本 |
 | --- | --- | --- | --- | --- |
 | **ASR 转录** (`asr`) | 基线 [`asr-v2026.07.17`](https://github.com/chosenecho/weimingzi_archive/releases/tag/asr-v2026.07.17) | 2017-12-14 ~ 2026-07-17 | B 站 1,980 条 / 1,530.03h + YouTube 105 条 / 154.29h（共 2,084 组 `.txt`/`.srt`、1,979 份词级 `.json`、`asr_pipeline.db`） | [`asr_bili`](catalog/asr_bili_23191782.csv) · [`asr_yt`](catalog/asr_yt_wujixuanshi.csv) · [`MANIFEST`](manifests/asr-v2026.07.17/MANIFEST.json) |
@@ -58,6 +59,7 @@ python scripts/restore.py --src-dir ./downloaded_release --preset light
 | **多平台归档** (`archive`) | 增量 [`archive-delta-2026.11.24-2026.11.27`](https://github.com/chosenecho/weimingzi_archive/releases/tag/archive-delta-2026.11.24-2026.11.27) | 2026-11-24 ~ 2026-11-27 | B 站新增 2 条 11-26 视频（`BV1SmyCzNEqd`、`BV11AyUzrEjr`）元信息/封面/89 条视频精选评论/1 份平台 `.srt` + 3 条直播动态 + 95 行 FTS5（压缩 712.05 KiB） | [`MANIFEST`](manifests/archive-delta-2026.11.24-2026.11.27/MANIFEST.json) |
 
 > 累计覆盖（基线 + 增量）：ASR 共 **2,088 条 / 1,690.18h**（`2017-12-14 ~ 2026-11-26`）；多平台归档共 **1,799 条视频、2,776 条动态、71 篇专栏、216,971 条精选评论**。`bili_23191782` 中 `BV19h411Y7bv_p1` 与 `p2` 因上游文件名截断共用同一份 ASR 输出文件（1,983 条数据库记录对应 1,982 组文件）；完整统计见 [`catalog/stats.json`](catalog/stats.json)。
+<!-- AUTO_SNAPSHOT_TABLE_END -->
 
 ## 下载分级（`--preset`）
 

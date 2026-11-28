@@ -1,0 +1,16 @@
+[Unit]
+Description=Weekly immutable incremental delta publish for weimingzi_archive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/weimingzi_archive
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/root/.secrets/weimingzi_archive.env
+ExecStart=/usr/bin/python3 /opt/weimingzi_archive/scripts/package_delta.py --publish --asr-root /opt/qwen3-asr-pipeline --biliyt-root /opt/biliyt --repo-root /opt/weimingzi_archive
+StandardOutput=append:/var/log/weimingzi-publish.log
+StandardError=append:/var/log/weimingzi-publish.log
+Nice=10
+TimeoutStartSec=1h

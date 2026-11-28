@@ -39,7 +39,26 @@ git push origin main
 python scripts/package_archive.py publish --tag <tag> --skip-package --clean
 ```
 
-## 3. 发版后验收
+## 3. 每周自动不可变增量发布（ECS `systemd` 定时器）
+
+日常增量维护推荐通过 `scripts/package_delta.py` 与 `systemd/weimingzi-publish.{service,timer}` 在 ECS 上每周日 `09:30` 自动执行：
+
+- 以仓库内 `catalog/*.csv` 为唯一已发布水位；无新增内容时静默退出（零空包、零多余提交）。
+- 强制硬编码白名单（仅 `bili_23191782`、`yt_wujixuanshi`）、只读 SQLite 快照备份、脱敏扫描与离线 `restore.py` 冒烟验证。
+- 原子发布顺序：先创建 `--draft` Release 上传资产 → 更新 `catalog/`、`manifests/`、`README.md` 并推送 `main` → 将 Release 置为正式发布（`--draft=false`）。
+
+```bash
+# 仅检测当前新增内容与推导的时间段 Tag（不写文件、不发布）
+python3 scripts/package_delta.py --dry-run
+
+# 本地打包并跑离线 restore.py 自检（不推送、不发 Release）
+python3 scripts/package_delta.py
+
+# 完整自动增量发布（需在环境变量 GH_TOKEN 提供仅限本仓库 Contents 读写的 Fine-grained PAT）
+python3 scripts/package_delta.py --publish
+```
+
+## 4. 发版后验收
 
 ```bash
 # 验证最新双流标签解析
@@ -50,7 +69,7 @@ python scripts/restore.py --modules asr --preset light --groups yt_wujixuanshi -
 python scripts/restore.py --modules archive --preset light --groups yt_wujixuanshi --dest ./_verify_tmp
 ```
 
-## 4. 发版红线
+## 5. 发版红线
 
 - **白名单隔离**：只允许 `bili_23191782` 和 `yt_wujixuanshi` 进入仓库和 Release。
 - **排除大媒体与敏感信息**：不打包 `.mp4`/`.mkv`/`.m4a` 等音视频、`cookies/`、`.env`、`config.yaml` 与 `sync_runs` 运行记录。
